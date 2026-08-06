@@ -41,6 +41,16 @@ USER_EMAILS = {
 }
 
 
+def obtener_ip_cliente():
+    """Render pone la IP real del visitante en X-Forwarded-For (puede traer
+    varias IPs separadas por coma si hay proxies de por medio; la primera
+    es la del cliente). Si no viene ese header, usa la IP directa."""
+    xff = request.headers.get("X-Forwarded-For", "")
+    if xff:
+        return xff.split(",")[0].strip()
+    return request.remote_addr
+
+
 def requires_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -85,7 +95,7 @@ def login():
     session["email"] = email
     session["role"] = role
 
-    registrar_log(email, "login", None)
+    registrar_log(email, "login", None, obtener_ip_cliente())
     return jsonify({"ok": True, "role": role})
 
 
@@ -93,7 +103,7 @@ def login():
 def logout():
     detalle = (request.get_json(silent=True) or {}).get("motivo")
     if session.get("email"):
-        registrar_log(session["email"], "logout" if not detalle else "logout_inactividad", detalle)
+        registrar_log(session["email"], "logout" if not detalle else "logout_inactividad", detalle, obtener_ip_cliente())
     session.clear()
     return jsonify({"ok": True})
 
@@ -129,11 +139,11 @@ def buscar():
     if r.status_code != 200:
         return jsonify({"error": "Error al consultar la base de datos"}), 502
 
-    registrar_log(session.get("email"), "busqueda", ", ".join(folios))
+    registrar_log(session.get("email"), "busqueda", ", ".join(folios), obtener_ip_cliente())
     return jsonify(r.json())
 
 
-def registrar_log(email, accion, detalle):
+def registrar_log(email, accion, detalle, ip=None):
     """Mejor esfuerzo: si falla el log, no interrumpe la respuesta al usuario."""
     try:
         requests.post(
@@ -143,7 +153,7 @@ def registrar_log(email, accion, detalle):
                 "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
                 "Content-Type": "application/json",
             },
-            json={"usuario_email": email, "accion": accion, "detalle": detalle},
+            json={"usuario_email": email, "accion": accion, "detalle": detalle, "ip_address": ip},
             timeout=5,
         )
     except Exception:
