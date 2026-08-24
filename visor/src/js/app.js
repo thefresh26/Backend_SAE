@@ -109,11 +109,19 @@ async function buscar(){
   const raw = document.getElementById('qi').value.trim();
   const sb = document.getElementById('sb');
   const res = document.getElementById('result');
+  const btn = document.querySelector('.sbtn');
   if(!raw) return;
+
+  /* Evita disparar varias búsquedas a la vez si el usuario hace clic o
+     presiona Enter repetidamente mientras la consulta anterior sigue en
+     curso (el botón se deshabilita hasta que termine, igual que en el
+     login). */
+  if(btn && btn.disabled) return;
 
   const folios = parseFolios(raw);
   if(folios.length===0) return;
 
+  if(btn) btn.disabled = true;
   sb.style.display='block'; sb.className='loading';
   sb.textContent = `⏳ Consultando ${folios.length} folio${folios.length>1?'s':''}...`;
   res.style.display = 'none';
@@ -183,5 +191,7 @@ async function buscar(){
   }catch(e){
     sb.style.display='block'; sb.className='error';
     sb.textContent='⚠ Error al consultar la base de datos. Verifica tu conexión e intenta de nuevo.';
+  }finally{
+    if(btn) btn.disabled = false;
   }
 }
