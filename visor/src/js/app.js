@@ -30,6 +30,19 @@ async function cerrarSesionPorInactividad(){
   location.reload();
 }
 
+/* ── CIERRE DE SESIÓN MANUAL ──
+   Disparado por el botón "Cerrar sesión" del encabezado. */
+async function cerrarSesionManual(){
+  try{
+    await fetch('/api/logout', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ motivo: null })
+    });
+  }catch(e){}
+  location.reload();
+}
+
 document.addEventListener('DOMContentLoaded', async function(){
   document.getElementById('l-user').focus();
   ['l-user','l-pass'].forEach(id=>{
@@ -43,6 +56,7 @@ document.addEventListener('DOMContentLoaded', async function(){
     if(s.autenticado){
       document.getElementById('login-overlay').style.display = 'none';
       document.getElementById('hero-eyebrow').textContent = 'CONSULTA DE EXPRESIONES DE INTERÉS · SAE · 2026';
+      document.getElementById('logout-btn').style.display = 'inline-block';
       iniciarControlInactividad();
     }
   }catch(e){}
@@ -78,6 +92,7 @@ async function doLogin(){
 
     document.getElementById('login-overlay').style.display = 'none';
     document.getElementById('hero-eyebrow').textContent = 'CONSULTA DE EXPRESIONES DE INTERÉS · SAE · 2026';
+    document.getElementById('logout-btn').style.display = 'inline-block';
     iniciarControlInactividad();
   }catch(e){
     btn.disabled = false;
