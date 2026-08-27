@@ -43,6 +43,15 @@ async function cerrarSesionManual(){
   location.reload();
 }
 
+/* Oculta el overlay de login con una transición suave (fade + leve
+   desplazamiento) en vez de un display:none instantáneo. Se deja el
+   elemento en el DOM (opacity 0 + visibility retrasada + pointer-events
+   none) para no depender de temporizadores en JS que deban coincidir
+   con la duración del CSS. */
+function ocultarLoginOverlay(){
+  document.getElementById('login-overlay').classList.add('lo-hide');
+}
+
 document.addEventListener('DOMContentLoaded', async function(){
   document.getElementById('l-user').focus();
   ['l-user','l-pass'].forEach(id=>{
@@ -54,7 +63,7 @@ document.addEventListener('DOMContentLoaded', async function(){
     const r = await fetch('/api/session');
     const s = await r.json();
     if(s.autenticado){
-      document.getElementById('login-overlay').style.display = 'none';
+      ocultarLoginOverlay();
       document.getElementById('hero-eyebrow').textContent = 'CONSULTA DE EXPRESIONES DE INTERÉS · SAE · 2026';
       document.getElementById('logout-btn').style.display = 'inline-block';
       iniciarControlInactividad();
@@ -84,20 +93,20 @@ async function doLogin(){
     btn.textContent = textoOriginal;
 
     if(!r.ok){
-      err.style.display = 'block';
+      err.classList.add('show');
       document.getElementById('l-pass').value = '';
       document.getElementById('l-pass').focus();
       return;
     }
 
-    document.getElementById('login-overlay').style.display = 'none';
+    ocultarLoginOverlay();
     document.getElementById('hero-eyebrow').textContent = 'CONSULTA DE EXPRESIONES DE INTERÉS · SAE · 2026';
     document.getElementById('logout-btn').style.display = 'inline-block';
     iniciarControlInactividad();
   }catch(e){
     btn.disabled = false;
     btn.textContent = textoOriginal;
-    err.style.display = 'block';
+    err.classList.add('show');
   }
 }
 
@@ -166,10 +175,11 @@ async function buscar(){
     sb.style.display='none';
     res.style.display='block';
 
-    const rows = folios.map(f=>{
+    const rows = folios.map((f,i)=>{
+      const delay = Math.min(i*30, 300);
       const r2 = found.get(f.toUpperCase());
       if(!r2){
-        return `<tr class="row-empty">
+        return `<tr class="row-empty" style="animation-delay:${delay}ms">
           <td class="vm">${esc(f)}</td>
           <td colspan="4"><span class="null">⚠ No se encontró este folio en la base de datos</span></td>
         </tr>`;
@@ -181,7 +191,7 @@ async function buscar(){
       const enlaceHtml = nul(r2.enlace_inmueble)
         ? '<span class="null">No publicado</span>'
         : `<a class="map-link" href="${esc(r2.enlace_inmueble)}" target="_blank">${icon('<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>')} Ver inmueble</a>`;
-      return `<tr>
+      return `<tr style="animation-delay:${delay}ms">
         <td class="vm">${esc(fmtFmi(r2.fmi))}</td>
         <td>${unidadHtml}</td>
         <td>${enlaceHtml}</td>
