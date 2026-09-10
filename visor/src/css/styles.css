@@ -158,6 +158,11 @@ main{flex:1;padding:28px 32px;max-width:980px;margin:0 auto;width:100%;}
 
 /* RESULTS TABLE */
 .res-table{width:100%;border-collapse:collapse;font-family:var(--body);}
+.filtro-doc-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;}
+.filtro-chip{font-family:var(--sans);font-size:11px;font-weight:600;color:var(--muted);background:var(--off);border:1px solid var(--border);border-radius:999px;padding:7px 14px;cursor:pointer;transition:all var(--dur-fast) var(--ease);}
+.filtro-chip:hover{color:var(--text);border-color:var(--pink-deep);}
+.filtro-chip.active{background:linear-gradient(135deg,var(--pink-deep),var(--pink));color:var(--white);border-color:transparent;transform:scale(1.05);box-shadow:0 3px 10px rgba(212,20,90,.3);}
+
 .res-table th{text-align:left;font-size:9px;font-family:var(--sans);font-weight:700;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;padding:0 12px 10px;border-bottom:2px solid var(--border);}
 .res-table td{padding:12px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle;}
 .res-table tr:last-child td{border-bottom:none;}

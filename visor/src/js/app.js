@@ -139,6 +139,26 @@ function parseFolios(q){
   )];
 }
 
+/* ── Filtro "solo sin documento" ──
+   Guarda el último resultado de búsqueda (folios pedidos + lo que
+   devolvió el backend) para poder re-pintar la tabla solo con el filtro,
+   sin tener que volver a consultar. Un folio "sin documento" es uno que
+   SÍ se encontró en la base de datos pero no tiene ningún documento
+   asociado (documentos vacío/null); los folios que no se encontraron no
+   cuentan como "sin documento", se muestran aparte igual que siempre. */
+let ultimoFoliosBuscados = [];
+let ultimoFoundVisor = new Map();
+let filtroSoloSinDocumento = false;
+
+function tieneDocumento(r){
+  return Array.isArray(r && r.documentos) && r.documentos.length > 0;
+}
+
+function toggleFiltroSinDocumento(){
+  filtroSoloSinDocumento = !filtroSoloSinDocumento;
+  pintarResultadosVisor();
+}
+
 async function buscar(){
   const raw = document.getElementById('qi').value.trim();
   const sb = document.getElementById('sb');
@@ -169,66 +189,96 @@ async function buscar(){
     if(!r.ok) throw new Error('HTTP '+r.status);
     const data = await r.json();
 
-    const found = new Map((data||[]).map(row=>[String(row.fmi).toUpperCase(), row]));
-    const noEncontrados = folios.filter(f=>!found.has(f.toUpperCase()));
+    ultimoFoliosBuscados = folios;
+    ultimoFoundVisor = new Map((data||[]).map(row=>[String(row.fmi).toUpperCase(), row]));
+    filtroSoloSinDocumento = false;
 
     sb.style.display='none';
     res.style.display='block';
-
-    const rows = folios.map((f,i)=>{
-      const delay = Math.min(i*30, 300);
-      const r2 = found.get(f.toUpperCase());
-      if(!r2){
-        return `<tr class="row-empty" style="animation-delay:${delay}ms">
-          <td class="vm">${esc(f)}</td>
-          <td colspan="4"><span class="null">⚠ No se encontró este folio en la base de datos</span></td>
-        </tr>`;
-      }
-      const esUnidad = !nul(r2.codigo_subasta);
-      const unidadHtml = esUnidad
-        ? `<span class="chip cb">${esc(String(r2.codigo_subasta).trim().toUpperCase())}</span>`
-        : '<span class="null">No aplica</span>';
-      const enlaceHtml = nul(r2.enlace_inmueble)
-        ? '<span class="null">No publicado</span>'
-        : `<a class="map-link" href="${esc(r2.enlace_inmueble)}" target="_blank">${icon('<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>')} Ver inmueble</a>`;
-      return `<tr style="animation-delay:${delay}ms">
-        <td class="vm">${esc(fmtFmi(r2.fmi))}</td>
-        <td>${unidadHtml}</td>
-        <td>${enlaceHtml}</td>
-        <td>${dropdownInteres(r2.interesados)}</td>
-        <td>${documentosHtml(r2.documentos)}</td>
-      </tr>`;
-    }).join('');
-
-    res.innerHTML = `
-    <div class="top-card">
-      <div class="tc-left">
-        <div class="tc-label">Resultado de la consulta</div>
-        <div class="fmi-num" style="font-size:16px">${folios.length} folio${folios.length>1?'s':''} consultado${folios.length>1?'s':''}</div>
-        <div class="tc-sub">${found.size} encontrado${found.size!==1?'s':''}${noEncontrados.length?` &nbsp;·&nbsp; ${noEncontrados.length} sin resultado`:''}</div>
-      </div>
-    </div>
-    <div class="sec">
-      <table class="res-table">
-        <thead>
-          <tr>
-            <th>Folio</th>
-            <th>Unidad</th>
-            <th>Enlace</th>
-            <th>Expresión de Interés</th>
-            <th>Documento</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows}
-        </tbody>
-      </table>
-    </div>
-    `;
+    pintarResultadosVisor();
   }catch(e){
     sb.style.display='block'; sb.className='error';
     sb.textContent='⚠ Error al consultar la base de datos. Verifica tu conexión e intenta de nuevo.';
   }finally{
     if(btn) btn.disabled = false;
   }
+}
+
+/* Repinta la tabla de resultados a partir de ultimoFoliosBuscados /
+   ultimoFoundVisor (sin volver a consultar el backend), aplicando el
+   filtro "solo sin documento" si está activo. Se llama tanto al terminar
+   una búsqueda nueva como al hacer clic en el filtro. */
+function pintarResultadosVisor(){
+  const res = document.getElementById('result');
+  const folios = ultimoFoliosBuscados;
+  const found = ultimoFoundVisor;
+  const noEncontrados = folios.filter(f=>!found.has(f.toUpperCase()));
+  const encontrados = folios.filter(f=>found.has(f.toUpperCase()));
+  const sinDocumento = encontrados.filter(f=>!tieneDocumento(found.get(f.toUpperCase())));
+
+  const foliosAMostrar = filtroSoloSinDocumento
+    ? folios.filter(f=>{
+        const r2 = found.get(f.toUpperCase());
+        return r2 && !tieneDocumento(r2);
+      })
+    : folios;
+
+  const rows = foliosAMostrar.map((f,i)=>{
+    const delay = Math.min(i*30, 300);
+    const r2 = found.get(f.toUpperCase());
+    if(!r2){
+      return `<tr class="row-empty" style="animation-delay:${delay}ms">
+        <td class="vm">${esc(f)}</td>
+        <td colspan="4"><span class="null">⚠ No se encontró este folio en la base de datos</span></td>
+      </tr>`;
+    }
+    const esUnidad = !nul(r2.codigo_subasta);
+    const unidadHtml = esUnidad
+      ? `<span class="chip cb">${esc(String(r2.codigo_subasta).trim().toUpperCase())}</span>`
+      : '<span class="null">No aplica</span>';
+    const enlaceHtml = nul(r2.enlace_inmueble)
+      ? '<span class="null">No publicado</span>'
+      : `<a class="map-link" href="${esc(r2.enlace_inmueble)}" target="_blank">${icon('<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>')} Ver inmueble</a>`;
+    return `<tr style="animation-delay:${delay}ms">
+      <td class="vm">${esc(fmtFmi(r2.fmi))}</td>
+      <td>${unidadHtml}</td>
+      <td>${enlaceHtml}</td>
+      <td>${dropdownInteres(r2.interesados)}</td>
+      <td>${documentosHtml(r2.documentos)}</td>
+    </tr>`;
+  }).join('');
+
+  const filtroHtml = folios.length > 1 ? `
+    <div class="filtro-doc-bar">
+      <button type="button" class="filtro-chip${filtroSoloSinDocumento?'':' active'}" onclick="filtroSoloSinDocumento && toggleFiltroSinDocumento()">Todos (${folios.length})</button>
+      <button type="button" class="filtro-chip${filtroSoloSinDocumento?' active':''}" onclick="!filtroSoloSinDocumento && toggleFiltroSinDocumento()">Sin documento (${sinDocumento.length})</button>
+    </div>
+  ` : '';
+
+  res.innerHTML = `
+  <div class="top-card">
+    <div class="tc-left">
+      <div class="tc-label">Resultado de la consulta</div>
+      <div class="fmi-num" style="font-size:16px">${folios.length} folio${folios.length>1?'s':''} consultado${folios.length>1?'s':''}</div>
+      <div class="tc-sub">${found.size} encontrado${found.size!==1?'s':''}${noEncontrados.length?` &nbsp;·&nbsp; ${noEncontrados.length} sin resultado`:''} &nbsp;·&nbsp; ${sinDocumento.length} sin documento</div>
+    </div>
+  </div>
+  ${filtroHtml}
+  <div class="sec">
+    <table class="res-table">
+      <thead>
+        <tr>
+          <th>Folio</th>
+          <th>Unidad</th>
+          <th>Enlace</th>
+          <th>Expresión de Interés</th>
+          <th>Documento</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows || '<tr><td colspan="5"><span class="null">Ningún folio coincide con este filtro.</span></td></tr>'}
+      </tbody>
+    </table>
+  </div>
+  `;
 }
